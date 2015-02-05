@@ -16,6 +16,9 @@ use Zend\I18n\Validator\Int as IntValidator;
 use Zend\Http\Client as HttpClient;
 use Zend\Http\Request as HttpRequest;
 use Zend\Validator\Between as BetweenValidator;
+use Zend\Feed\Reader\Collection;
+use Zend\Tag\Item;
+use Zend\Authentication\Result;
 
 /**
  * @category   Zend
@@ -226,6 +229,141 @@ class Flickr
 
         return new ResultSet($dom, $this);
     }
+    
+    /**
+     * Get the Group Info as an array
+     *
+     * @param  string $id id of the group
+     * @return array
+     */
+    public function getGroupInfo($id)
+    {
+        static $method = 'flickr.groups.getInfo';
+        
+        $options = array('api_key' => $this->apiKey, 'method' => $method, 'group_id' => (string)$id);
+        
+        if (empty($id)) {
+            throw new Exception\InvalidArgumentException('You must supply a Group id');
+        }
+        
+        $request = new HttpRequest;
+        $request->setUri(self::URI_BASE);
+        $request->getQuery()->fromArray($options);
+        $response = $this->httpClient->send($request);
+        
+        if ($response->isServerError() || $response->isClientError()) {
+            throw new Exception\RuntimeException('An error occurred sending request. Status code: '
+                . $response->getStatusCode());
+        }
+        
+        $dom = new DOMDocument();
+        $dom->loadXML($response->getBody());
+        self::checkErrors($dom);
+        $xpath = new DOMXPath($dom);
+        $group = $xpath->query('//group')->item(0);
+        $retval = array();
+        foreach ($group->childNodes as $item) {
+            if ($item->nodeName <> '#text'){
+                $retval[$item->nodeName] = $item->nodeValue;
+            }
+            
+        }
+        return $retval;
+    }
+    
+    /**
+     * Get the Photo Info as an array
+     *
+     * @param  string $id id of the photo
+     * @return array
+     */
+    public function getPhotoInfo($id)
+    {
+        static $method = 'flickr.photos.getInfo';
+    
+        $options = array('api_key' => $this->apiKey, 'method' => $method, 'photo_id' => (string)$id);
+    
+        if (empty($id)) {
+            throw new Exception\InvalidArgumentException('You must supply a Photo id');
+        }
+    
+        $request = new HttpRequest;
+        $request->setUri(self::URI_BASE);
+        $request->getQuery()->fromArray($options);
+        $response = $this->httpClient->send($request);
+    
+        if ($response->isServerError() || $response->isClientError()) {
+            throw new Exception\RuntimeException('An error occurred sending request. Status code: '
+                . $response->getStatusCode());
+        }
+    
+        $dom = new DOMDocument();
+        $dom->loadXML($response->getBody());
+        self::checkErrors($dom);
+        $xpath = new DOMXPath($dom);
+        $group = $xpath->query('//')->item(0);
+        $retval = array();
+        foreach ($group->childNodes as $item) {
+            if ($item->nodeName <> '#text'){
+                $retval[$item->nodeName] = $item->nodeValue;
+            }
+    
+        }
+        return $retval;
+    }
+    
+    /**
+     * Returns a tree (or sub tree) of collections belonging to a given user.
+     *
+     * @param  string $userId   
+     * @param  string $collectionId
+     * @return ResultSet
+     * @throws Exception\InvalidArgumentException
+     * @throws Exception\RuntimeException
+     */
+    public function collecionGetTree($userId, $collectionId=null)
+    {
+        static $method = 'flickr.collections.getTree';
+        
+        $options = array(
+            'api_key' => $this->apiKey, 
+            'method' => $method, 
+            'user_id' => $userId,
+            'collection_id' => (string)$collectionId);
+        
+        if (empty($userId) || !is_string($userId)) {
+            throw new Exception\InvalidArgumentException('You must supply an userId');
+        }
+        
+        $request = new HttpRequest;
+        $request->setUri(self::URI_BASE);
+        $request->getQuery()->fromArray($options);
+        $response = $this->httpClient->send($request);
+        
+        if ($response->isServerError() || $response->isClientError()) {
+            throw new Exception\RuntimeException('An error occurred sending request. Status code: '
+                . $response->getStatusCode());
+        }
+        
+        $dom = new DOMDocument();
+        $dom->loadXML($response->getBody());
+        self::checkErrors($dom);
+        $xpath = new DOMXPath($dom);
+        
+        $retval = array();
+        foreach ($xpath->query('//collection') as $collection) {
+            $label = (string)$collection->getAttribute('id');
+            $retval[$label] = new Collection($collection);
+            
+        }
+        foreach ($retval as $val) {
+            echo $val->title;
+        }
+        return $retval;
+//return $xpath->query('//collection');
+    
+    
+    }
 
 
     /**
@@ -301,6 +439,42 @@ class Flickr
         self::checkErrors($dom);
         $xpath = new DOMXPath($dom);
         return (string)$xpath->query('//user')->item(0)->getAttribute('id');
+    }
+    
+    public function getImageInfoById($id)
+    {
+        static $method='flickr.photos.getInfo';
+        
+        $options = array('api_key' => $this->apiKey, 'method' => $method, 'photo_id' => (string)$id);
+        
+        if (empty($id)) {
+            throw new Exception\InvalidArgumentException('You must supply a Group id');
+        }
+        
+        $request = new HttpRequest;
+        $request->setUri(self::URI_BASE);
+        $request->getQuery()->fromArray($options);
+        $response = $this->httpClient->send($request);
+        
+        if ($response->isServerError() || $response->isClientError()) {
+            throw new Exception\RuntimeException('An error occurred sending request. Status code: '
+                . $response->getStatusCode());
+        }
+        
+        $dom = new DOMDocument();
+        $dom->loadXML($response->getBody());
+        self::checkErrors($dom);
+        
+        $xpath = new DOMXPath($dom);
+        $ximage = $xpath->query('//photo')->item(0);
+        $retval = array();
+        foreach ($ximage->childNodes as $item) {
+            if ($item->nodeName <> '#text'){
+                $retval[$item->nodeName] = $item->nodeValue;
+            }
+            
+        }
+        return $retval;
     }
 
 
